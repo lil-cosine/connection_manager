@@ -1,0 +1,92 @@
+import { Button } from "std-widgets.slint";
+
+export component AppWindow inherits Window {
+    property <bool> bluetooth: false;
+
+    VerticalLayout {
+        padding: 20px;
+        GridLayout {
+            padding: 10px;
+            spacing: 5px;
+            Button {
+                text: "Network";
+                clicked => { root.bluetooth = false; }
+            }
+
+            Button {
+                text: "Bluetooth";
+                clicked => { root.bluetooth = true; }
+            }
+        }
+
+        if !root.bluetooth : VerticalLayout {
+            padding: 15px;
+            spacing: 10px;
+            Text {
+                text: "Saved Networks";
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                Text {
+                    text: "network";
+                } 
+                Button {
+                    text: "Forget";
+                }
+                Button {
+                    text: "Connect";
+                }
+            }
+            Text {
+                text: "Other Networks";
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                Text {
+                    text: "network";
+                }
+                Button {
+                    text: "Connect";
+                }
+            }
+            Button {
+                text: "Refresh";
+            }
+        }
+
+        if root.bluetooth : VerticalLayout {
+             padding: 15px;
+            spacing: 10px;
+            Text {
+                text: "Saved Devices";
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                Text {
+                    text: "device";
+                } 
+                Button {
+                    text: "Forget";
+                }
+                Button {
+                    text: "Connect";
+                }
+            }
+            Text {
+                text: "Other Devices";
+            }
+            HorizontalLayout {
+                spacing: 10px;
+                Text {
+                    text: "Device";
+                }
+                Button {
+                    text: "Connect";
+                }
+            }
+            Button {
+                text: "Refresh";
+            }
+        }
+    }
+}
