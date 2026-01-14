@@ -2,18 +2,26 @@ import { Button } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
     property <bool> bluetooth: false;
+    in property <[string]> networks;
+    in property <[string]> avail-networks;
 
     VerticalLayout {
         padding: 20px;
+        alignment: center;
         GridLayout {
             padding: 10px;
             spacing: 5px;
+            
             Button {
+                width: 100px;
+                height: 30px;
                 text: "Network";
                 clicked => { root.bluetooth = false; }
             }
 
             Button {
+                width: 100px;
+                height: 30px;
                 text: "Bluetooth";
                 clicked => { root.bluetooth = true; }
             }
@@ -23,32 +31,45 @@ export component AppWindow inherits Window {
             padding: 15px;
             spacing: 10px;
             Text {
+                font-size: 20px;
                 text: "Saved Networks";
             }
-            HorizontalLayout {
-                spacing: 10px;
-                Text {
-                    text: "network";
-                } 
-                Button {
-                    text: "Forget";
-                }
-                Button {
-                    text: "Connect";
+            VerticalLayout {
+                for net in networks : 
+                    HorizontalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: net;
+                    } 
+                    Button {
+                        width: 80px;
+                        text: "Forget";
+                    }
+                    Button {
+                        width: 80px;
+                        text: "Connect";
+                    }
                 }
             }
+            
             Text {
+                font-size: 20px;
                 text: "Other Networks";
             }
-            HorizontalLayout {
-                spacing: 10px;
-                Text {
-                    text: "network";
-                }
-                Button {
-                    text: "Connect";
+            VerticalLayout {
+                for net in avail-networks : 
+                    HorizontalLayout {
+                    spacing: 10px;
+                    Text {
+                        text: net;
+                    } 
+                    Button {
+                        width: 80px;
+                        text: "Connect";
+                    }
                 }
             }
+
             Button {
                 text: "Refresh";
             }
@@ -66,9 +87,11 @@ export component AppWindow inherits Window {
                     text: "device";
                 } 
                 Button {
+                    width: 80px;
                     text: "Forget";
                 }
                 Button {
+                    width: 80px;
                     text: "Connect";
                 }
             }
@@ -81,6 +104,7 @@ export component AppWindow inherits Window {
                     text: "Device";
                 }
                 Button {
+                    width: 80px;
                     text: "Connect";
                 }
             }
