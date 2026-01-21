@@ -19,22 +19,71 @@ struct AccessPoint{
 fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
-    get_saved_networks(&ui);
-    get_avail_networks(&ui);
+    let ui_weak = ui.as_weak();
 
-    
+    ui.on_refresh_networks(move || {
+        if let Some(ui) = ui_weak.upgrade() {
+            cur_network(&ui);
+            avail_networks(&ui);
+        }
+    });
+
+    ui.on_connect(move |ssid| {
+        connect(ssid);
+    });
+
+    cur_network(&ui);
+    avail_networks(&ui);
+    saved_networks(&ui);
+
     ui.run()?;
 
     Ok(())
 }
 
+// Model
+fn connect(ssid: SharedString){
+    let saved_ssids: Vec<SharedString> = get_saved_networks();
+    for saved_ssid in saved_ssids.iter(){
+        if *saved_ssid == ssid{
+            connect_saved_network(&ssid);
+        }
+    }
+}
 
-fn get_avail_networks(ui: &AppWindow){
+fn connect_saved_network(ssid: &SharedString){
+    Command::new("nmcli").args(["con", "up", ssid]).output().expect("failed to connect to saved networks");
+}
+
+fn get_cur_network() -> SharedString{
+    let networks = Command::new("nmcli")
+                                    .args(["-t", "-f", "ACTIVE,NAME,TYPE", "connection", "show"])        
+                                    .output()
+                                    .expect("failed to run nmcli");
+
+    let stdout = String::from_utf8_lossy(&networks.stdout);
+
+    let wifi_networks: Vec<&str> = stdout
+        .lines()
+        .filter_map(|line| {
+            let mut result = line.split(":");
+            let active = result.next()?;
+            let name = result.next()?;
+            let ty = result.next()?;
+
+            (ty == "802-11-wireless" && active == "yes" ).then_some(name)
+        })
+        .collect();
+
+    SharedString::from(wifi_networks[0])
+}
+
+fn get_avail_networks() -> Vec<SharedString> {
     let networks = Command::new("nmcli")
                                     .args(["-t", "-f", "IN-USE,SSID,SIGNAL", "dev", "wifi", "list"])
                                     .output()
                                     .expect("failed to run nmcli");
-    
+
     let networks = String::from_utf8_lossy(&networks.stdout);
 
     let mut wifi_networks: Vec<&str> = networks
@@ -80,22 +129,12 @@ fn get_avail_networks(ui: &AppWindow){
 
     sorted_vec.sort_by(|a, b| b.signal.cmp(&a.signal));
 
-    let out_networks:Vec<SharedString> = sorted_vec
-                                        .iter()
-                                        .map(|ap| SharedString::from(ap.ssid.clone()))
-                                        .collect();
-
-    let out_networks = VecModel::from(out_networks);
-
-    ui.set_avail_networks(ModelRc::new(out_networks));    
-
-    
+    sorted_vec.iter().map(|ap| SharedString::from(ap.ssid.clone())).collect()
 }
 
-fn get_saved_networks(ui: &AppWindow){
-   
+fn get_saved_networks() -> Vec<SharedString>{
     let networks = Command::new("nmcli")
-                                    .args(["-t", "-f", "NAME,TYPE", "connection", "show"])        
+                                    .args(["-t", "-f", "ACTIVE,NAME,TYPE", "connection", "show"])        
                                     .output()
                                     .expect("failed to run nmcli");
 
@@ -104,18 +143,52 @@ fn get_saved_networks(ui: &AppWindow){
     let wifi_networks: Vec<&str> = stdout
         .lines()
         .filter_map(|line| {
-            let (name, ty) = line.rsplit_once(':')?;
-            (ty == "802-11-wireless").then_some(name)
+            let mut result = line.split(":");
+            let active = result.next()?;
+            let name = result.next()?;
+            let ty = result.next()?;
+
+            (ty == "802-11-wireless" && active == "no" ).then_some(name)
         })
         .collect();
 
-    let out_networks = VecModel::from(
-        wifi_networks
-        .into_iter()
-        .map(SharedString::from)
-        .collect::<Vec<_>>(),
-    );
+    //let out_networks = VecModel::from(
+    //    wifi_networks
+    //    .into_iter()
+    //    .map(SharedString::from)
+    //    .collect::<Vec<_>>(),
+    //);
+    
+    //out_networks
+    wifi_networks.into_iter().map(SharedString::from).collect::<Vec<_>>()
+}
 
-    ui.set_networks(ModelRc::new(out_networks));
+// Display
+fn display_cur_network(ui: &AppWindow, ssid: SharedString){
+    ui.set_curnet(ssid);
+}
 
+fn display_avail_networks(ui: &AppWindow, ssids: VecModel<SharedString>){
+    ui.set_avail_networks(ModelRc::new(ssids));
+}
+
+fn display_saved_networks(ui: &AppWindow, ssids: VecModel<SharedString>){
+    ui.set_networks(ModelRc::new(ssids));
+}
+
+
+// Mains
+fn cur_network(ui: &AppWindow){
+    let networks: SharedString = get_cur_network();
+    display_cur_network(&ui, networks);
+}
+
+fn avail_networks(ui: &AppWindow){
+    let networks: VecModel<SharedString> = VecModel::from(get_avail_networks());
+    display_avail_networks(&ui, networks);
+}
+
+fn saved_networks(ui: &AppWindow){
+    let networks: VecModel<SharedString> = VecModel::from(get_saved_networks());
+    display_saved_networks(&ui, networks);
 }
