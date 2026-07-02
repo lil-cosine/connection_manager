@@ -4,6 +4,7 @@ export component AppWindow inherits Window {
     callback refresh-networks();
     callback connect(ssid: string);
     callback disconnect(ssid: string);
+    callback forget(ssid: string);
     property <bool> bluetooth: false;
     in property <string> curnet;
     in property <[string]> networks;
@@ -55,6 +56,7 @@ export component AppWindow inherits Window {
                     Button {
                         width: 75px;
                         text: "Forget";
+                        clicked => { root.forget(curnet); refresh-networks(); }
                     }
                 }
             }
@@ -106,6 +108,8 @@ export component AppWindow inherits Window {
                     Button {
                         width: 80px;
                         text: "Forget";
+                        clicked => { root.forget(net); root.refresh-networks(); }
+
                     }
                 }
             }

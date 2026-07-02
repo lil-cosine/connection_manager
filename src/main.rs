@@ -25,6 +25,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         if let Some(ui) = ui_weak.upgrade() {
             cur_network(&ui);
             avail_networks(&ui);
+            saved_networks(&ui);
         }
     });
 
@@ -34,6 +35,10 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     ui.on_connect(move |ssid| {
         connect(ssid);
+    });
+
+    ui.on_forget(move |ssid| {
+        forget_network(&ssid);
     });
 
     cur_network(&ui);
@@ -67,6 +72,13 @@ fn disconnect_cur_network(ssid: &SharedString) {
         .args(["con", "down", ssid])
         .output()
         .expect("failed to disconnect from current network");
+}
+
+fn forget_network(ssid: &SharedString) {
+    Command::new("nmcli")
+        .args(["con", "delete", ssid])
+        .output()
+        .expect("failed to forget network");
 }
 
 fn get_cur_network() -> Option<SharedString> {
