@@ -133,7 +133,7 @@ fn get_avail_networks() -> Vec<SharedString> {
     let mut access_points: Vec<AccessPoint> = vec![];
     for net in wifi_networks {
         let split: Vec<&str> = net.split(':').collect();
-        if split[1].to_string() == "" || split[2].parse::<u8>().unwrap() < 35 {
+        if split[1].is_empty() || split[2].parse::<u8>().unwrap() < 35 {
             continue;
         }
         access_points.push(AccessPoint {
@@ -216,15 +216,15 @@ fn display_saved_networks(ui: &AppWindow, ssids: VecModel<SharedString>) {
 // Mains
 fn cur_network(ui: &AppWindow) {
     let network: SharedString = get_cur_network().unwrap_or_else(|| SharedString::from("None"));
-    display_cur_network(&ui, network);
+    display_cur_network(ui, network);
 }
 
 fn avail_networks(ui: &AppWindow) {
     let networks: VecModel<SharedString> = VecModel::from(get_avail_networks());
-    display_avail_networks(&ui, networks);
+    display_avail_networks(ui, networks);
 }
 
 fn saved_networks(ui: &AppWindow) {
     let networks: VecModel<SharedString> = VecModel::from(get_saved_networks());
-    display_saved_networks(&ui, networks);
+    display_saved_networks(ui, networks);
 }
