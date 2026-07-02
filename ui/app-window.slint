@@ -3,6 +3,7 @@ import { Button } from "std-widgets.slint";
 export component AppWindow inherits Window {
     callback refresh-networks();
     callback connect(ssid: string);
+    callback disconnect(ssid: string);
     property <bool> bluetooth: false;
     in property <string> curnet;
     in property <[string]> networks;
@@ -39,15 +40,17 @@ export component AppWindow inherits Window {
                 font-size: 20px;
                 text: "Current Network";
             }
-            VerticalLayout { 
+
+            if root.curnet != "None" : VerticalLayout {
                 HorizontalLayout {
                     spacing: 10px;
                     Text {
                         text: curnet;
-                    } 
+                    }
                     Button {
                         width: 100px;
                         text: "Disconnect";
+                        clicked => { root.disconnect(curnet); refresh-networks(); }
                     }
                     Button {
                         width: 75px;
@@ -55,24 +58,31 @@ export component AppWindow inherits Window {
                     }
                 }
             }
-                
+
+            if root.curnet == "None" : VerticalLayout {
+                Text {
+                  font-size: 12px;
+                  text: "You are not currently connected to a network";
+                }
+            }
+
             Button {
                 width: 80px;
                 text: "Refresh";
                 clicked => { root.refresh-networks(); }
-            }            
-            
+            }
+
             Text {
                 font-size: 20px;
                 text: "Other Networks";
             }
             VerticalLayout {
-                for net in avail-networks : 
+                for net in avail-networks :
                     HorizontalLayout {
                     spacing: 10px;
                     Text {
                         text: net;
-                    } 
+                    }
                     Button {
                         width: 80px;
                         text: "Connect";
@@ -87,12 +97,12 @@ export component AppWindow inherits Window {
                 text: "Saved Networks";
             }
             VerticalLayout {
-                for net in networks : 
+                for net in networks :
                     HorizontalLayout {
                     spacing: 10px;
                     Text {
                         text: net;
-                    } 
+                    }
                     Button {
                         width: 80px;
                         text: "Forget";
@@ -111,7 +121,7 @@ export component AppWindow inherits Window {
                 spacing: 10px;
                 Text {
                     text: "device";
-                } 
+                }
                 Button {
                     width: 80px;
                     text: "Forget";
