@@ -53,7 +53,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let ui_weak = ui.as_weak();
     ui.on_connect_new(move |ssid, password| {
-        connect_new_network(&ssid, &password.to_string());
+        connect_new_network(&ssid, password.as_ref());
         if let Some(ui) = ui_weak.upgrade() {
             ui.invoke_refresh_networks();
         }
@@ -96,9 +96,9 @@ fn connect_saved_network(ssid: &SharedString) {
 }
 
 // TODO handle wrong passwords
-fn connect_new_network(ssid: &SharedString, password: &String) {
+fn connect_new_network(ssid: &SharedString, password: &str) {
     Command::new("nmcli")
-        .args(["device", "wifi", "connect", &ssid, "password", &password])
+        .args(["device", "wifi", "connect", ssid, "password", password])
         .output()
         .expect("failed to connect to new network");
 }
