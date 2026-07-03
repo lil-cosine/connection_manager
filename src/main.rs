@@ -29,16 +29,42 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    let ui_weak = ui.as_weak();
     ui.on_disconnect(move |ssid| {
         disconnect_cur_network(&ssid);
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.invoke_refresh_networks();
+        }
     });
 
+    let ui_weak = ui.as_weak();
     ui.on_connect(move |ssid| {
-        connect(ssid);
+        let found = try_connect_known(ssid.clone());
+
+        if let Some(ui) = ui_weak.upgrade() {
+            if found {
+                ui.invoke_refresh_networks();
+            } else {
+                ui.set_pending_ssid(ssid);
+                ui.invoke_show_password_popup();
+            }
+        }
     });
 
+    let ui_weak = ui.as_weak();
+    ui.on_connect_new(move |ssid, password| {
+        connect_new_network(&ssid, &password.to_string());
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.invoke_refresh_networks();
+        }
+    });
+
+    let ui_weak = ui.as_weak();
     ui.on_forget(move |ssid| {
         forget_network(&ssid);
+        if let Some(ui) = ui_weak.upgrade() {
+            ui.invoke_refresh_networks();
+        }
     });
 
     cur_network(&ui);
@@ -51,13 +77,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 }
 
 // Model
-fn connect(ssid: SharedString) {
+fn try_connect_known(ssid: SharedString) -> bool {
     let saved_ssids: Vec<SharedString> = get_saved_networks();
     for saved_ssid in saved_ssids.iter() {
         if *saved_ssid == ssid {
             connect_saved_network(&ssid);
+            return true;
         }
     }
+    false
 }
 
 fn connect_saved_network(ssid: &SharedString) {
@@ -65,6 +93,14 @@ fn connect_saved_network(ssid: &SharedString) {
         .args(["con", "up", ssid])
         .output()
         .expect("failed to connect to saved networks");
+}
+
+// TODO handle wrong passwords
+fn connect_new_network(ssid: &SharedString, password: &String) {
+    Command::new("nmcli")
+        .args(["device", "wifi", "connect", &ssid, "password", &password])
+        .output()
+        .expect("failed to connect to new network");
 }
 
 fn disconnect_cur_network(ssid: &SharedString) {

@@ -1,14 +1,17 @@
-import { Button } from "std-widgets.slint";
+import { Button, LineEdit } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
     callback refresh-networks();
     callback connect(ssid: string);
+    callback connect-new(ssid: string, password: string);
     callback disconnect(ssid: string);
     callback forget(ssid: string);
+    callback show-password-popup();
     property <bool> bluetooth: false;
     in property <string> curnet;
     in property <[string]> networks;
     in property <[string]> avail-networks;
+    in-out property <string> pending-ssid;
 
     VerticalLayout {
         padding: 20px;
@@ -51,12 +54,12 @@ export component AppWindow inherits Window {
                     Button {
                         width: 100px;
                         text: "Disconnect";
-                        clicked => { root.disconnect(curnet); refresh-networks(); }
+                        clicked => { root.disconnect(curnet); }
                     }
                     Button {
                         width: 75px;
                         text: "Forget";
-                        clicked => { root.forget(curnet); refresh-networks(); }
+                        clicked => { root.forget(curnet); }
                     }
                 }
             }
@@ -88,7 +91,7 @@ export component AppWindow inherits Window {
                     Button {
                         width: 80px;
                         text: "Connect";
-                        clicked => { connect(net); refresh-networks(); }
+                        clicked => { connect(net); }
                     }
                 }
             }
@@ -108,7 +111,7 @@ export component AppWindow inherits Window {
                     Button {
                         width: 80px;
                         text: "Forget";
-                        clicked => { root.forget(net); root.refresh-networks(); }
+                        clicked => { root.forget(net); }
 
                     }
                 }
@@ -152,5 +155,49 @@ export component AppWindow inherits Window {
                 text: "Refresh";
             }
         }
+    }
+
+    password-popup := PopupWindow {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        width: 250px;
+        height: 130px;
+        close-policy: close-on-click-outside;
+        forward-focus: password-input;
+
+        function submit-password(password: string) {
+            root.connect-new(root.pending-ssid, password);
+            password-popup.close();
+        }
+
+        Rectangle {
+            background: white;
+            border-width: 1px;
+            border-color: gray;
+
+            VerticalLayout {
+                padding: 10px;
+                spacing: 8px;
+
+                Text {
+                    text: "Enter password for " + root.pending-ssid;
+                    wrap: word-wrap;
+                }
+
+                password-input := LineEdit {
+                    input-type: password;
+                    accepted(text) => { submit-password(text); }
+                }
+
+                Button {
+                    text: "Connect";
+                    clicked => { submit-password(password-input.text); }
+                }
+            }
+        }
+    }
+
+    show-password-popup => {
+        password-popup.show();
     }
 }
