@@ -46,6 +46,8 @@ fn main() -> Result<(), Box<dyn Error>> {
                 ui.invoke_refresh_networks();
             } else {
                 ui.set_pending_ssid(ssid);
+                ui.set_password_error(false);
+                ui.set_password_error_text("".into());
                 ui.invoke_show_password_popup();
             }
         }
@@ -53,9 +55,15 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let ui_weak = ui.as_weak();
     ui.on_connect_new(move |ssid, password| {
-        connect_new_network(&ssid, password.as_ref());
         if let Some(ui) = ui_weak.upgrade() {
-            ui.invoke_refresh_networks();
+            if connect_new_network(&ssid, password.as_ref()) {
+                ui.set_password_error(false);
+                ui.invoke_refresh_networks();
+            } else {
+                forget_network(&ssid); // removes the network from the saved list
+                ui.set_password_error(true);
+                ui.set_password_error_text("Incorrect password, or connection failed.".into());
+            }
         }
     });
 
@@ -95,12 +103,25 @@ fn connect_saved_network(ssid: &SharedString) {
         .expect("failed to connect to saved networks");
 }
 
-// TODO handle wrong passwords
-fn connect_new_network(ssid: &SharedString, password: &str) {
-    Command::new("nmcli")
+fn connect_new_network(ssid: &SharedString, password: &str) -> bool {
+    let output = Command::new("nmcli")
         .args(["device", "wifi", "connect", ssid, "password", password])
-        .output()
-        .expect("failed to connect to new network");
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => true,
+        Ok(o) => {
+            eprintln!(
+                "nmcli exited with error: {}",
+                String::from_utf8_lossy(&o.stderr)
+            );
+            false
+        }
+        Err(e) => {
+            eprintln!("failed to run nmcli: {e}");
+            false
+        }
+    }
 }
 
 fn disconnect_cur_network(ssid: &SharedString) {

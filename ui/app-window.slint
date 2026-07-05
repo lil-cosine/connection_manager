@@ -12,6 +12,8 @@ export component AppWindow inherits Window {
     in property <[string]> networks;
     in property <[string]> avail-networks;
     in-out property <string> pending-ssid;
+    in-out property <bool> password-error: false;
+    in-out property <string> password-error-text: "";
 
     VerticalLayout {
         padding: 20px;
@@ -167,7 +169,9 @@ export component AppWindow inherits Window {
 
         function submit-password(password: string) {
             root.connect-new(root.pending-ssid, password);
-            password-popup.close();
+            if (!root.password-error) {
+              password-popup.close();
+            }
         }
 
         Rectangle {
@@ -187,6 +191,13 @@ export component AppWindow inherits Window {
                 password-input := LineEdit {
                     input-type: password;
                     accepted(text) => { submit-password(text); }
+                }
+
+                if root.password-error : Text {
+                    text: root.password-error-text;
+                    color: red;
+                    font-size: 12px;
+                    wrap: word-wrap;
                 }
 
                 Button {
