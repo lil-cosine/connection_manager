@@ -68,6 +68,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let ui_weak = ui.as_weak();
+    ui.on_toggle_bluetooth(move || {
+        if let Some(ui) = ui_weak.upgrade() {
+            toggle_bluetooth(&ui);
+        }
+    });
+
+    let ui_weak = ui.as_weak();
     ui.on_forget(move |ssid| {
         forget_network(&ssid);
         if let Some(ui) = ui_weak.upgrade() {
@@ -78,6 +85,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     cur_network(&ui);
     avail_networks(&ui);
     saved_networks(&ui);
+    set_bluetooth_on(&ui);
 
     ui.run()?;
 
@@ -257,6 +265,30 @@ fn get_saved_networks() -> Vec<SharedString> {
         .collect::<Vec<_>>()
 }
 
+fn enable_bluetooth() {
+    Command::new("bluetoothctl")
+        .args(["power", "on"])
+        .output()
+        .expect("unable to enable bluetooth");
+}
+
+fn disable_bluetooth() {
+    Command::new("bluetoothctl")
+        .args(["power", "off"])
+        .output()
+        .expect("unable to disable bluetooth");
+}
+
+fn toggle_bluetooth(ui: &AppWindow) {
+    if ui.get_bluetooth_on() {
+        disable_bluetooth();
+        ui.set_bluetooth_on(false);
+    } else {
+        enable_bluetooth();
+        ui.set_bluetooth_on(true);
+    }
+}
+
 // Display
 fn display_cur_network(ui: &AppWindow, ssid: SharedString) {
     ui.set_curnet(ssid);
@@ -284,4 +316,19 @@ fn avail_networks(ui: &AppWindow) {
 fn saved_networks(ui: &AppWindow) {
     let networks: VecModel<SharedString> = VecModel::from(get_saved_networks());
     display_saved_networks(ui, networks);
+}
+
+fn set_bluetooth_on(ui: &AppWindow) {
+    let output = Command::new("bluetoothctl")
+        .args(["--timeout", "0", "scan", "on"])
+        .output();
+
+    match output {
+        Ok(o) if o.status.success() => ui.set_bluetooth_on(true),
+        Ok(_o) => ui.set_bluetooth_on(false),
+        Err(e) => {
+            eprintln!("failed to run bluetoothctl: {e}");
+            ui.set_bluetooth_on(false);
+        }
+    }
 }

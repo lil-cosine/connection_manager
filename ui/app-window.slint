@@ -1,4 +1,4 @@
-import { Button, LineEdit } from "std-widgets.slint";
+import { Button, LineEdit, Switch } from "std-widgets.slint";
 
 export component AppWindow inherits Window {
     callback refresh-networks();
@@ -7,10 +7,12 @@ export component AppWindow inherits Window {
     callback disconnect(ssid: string);
     callback forget(ssid: string);
     callback show-password-popup();
+    callback toggle-bluetooth();
     property <bool> bluetooth: false;
     in property <string> curnet;
     in property <[string]> networks;
     in property <[string]> avail-networks;
+    in property <bool> bluetooth-on: false;
     in-out property <string> pending-ssid;
     in-out property <bool> password-error: false;
     in-out property <string> password-error-text: "";
@@ -123,6 +125,13 @@ export component AppWindow inherits Window {
         if root.bluetooth : VerticalLayout {
              padding: 15px;
             spacing: 10px;
+            Switch {
+              text: "Bluetooth";
+              checked: root.bluetooth-on;
+              toggled() => {
+                toggle-bluetooth();
+              }
+            }
             Text {
                 text: "Saved Devices";
             }
