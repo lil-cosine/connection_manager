@@ -16,6 +16,12 @@ struct AccessPoint {
     in_use: bool,
 }
 
+struct BluetoothDevice {
+    name: String,
+    mac_address: String,
+    in_use: bool,
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
@@ -86,6 +92,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     avail_networks(&ui);
     saved_networks(&ui);
     set_bluetooth_on(&ui);
+    saved_devices(&ui);
 
     ui.run()?;
 
@@ -289,6 +296,36 @@ fn toggle_bluetooth(ui: &AppWindow) {
     }
 }
 
+fn get_saved_devices() -> Vec<SharedString> {
+    let devices = Command::new("bluetoothctl")
+        .args(["devices", "Paired"])
+        .output()
+        .expect("failed to run bluetoothctl");
+
+    let stdout = String::from_utf8_lossy(&devices.stdout);
+
+    let saved_devices: Vec<&str> = stdout
+        .lines()
+        .filter_map(|line| {
+            let mut result = line.split_whitespace();
+            let _id_type = result.next()?;
+            let _mac_address = result.next()?;
+            let name = result.next()?;
+
+            (name.len() != 17
+                || (name.len() == 17
+                    && name.chars().nth(2).unwrap() != ':'
+                    && name.chars().nth(5).unwrap() != ':'))
+                .then_some(name)
+        })
+        .collect();
+
+    saved_devices
+        .into_iter()
+        .map(SharedString::from)
+        .collect::<Vec<_>>()
+}
+
 // Display
 fn display_cur_network(ui: &AppWindow, ssid: SharedString) {
     ui.set_curnet(ssid);
@@ -300,6 +337,10 @@ fn display_avail_networks(ui: &AppWindow, ssids: VecModel<SharedString>) {
 
 fn display_saved_networks(ui: &AppWindow, ssids: VecModel<SharedString>) {
     ui.set_networks(ModelRc::new(ssids));
+}
+
+fn display_saved_devices(ui: &AppWindow, device_names: VecModel<SharedString>) {
+    ui.set_saved_devices(ModelRc::new(device_names));
 }
 
 // Mains
@@ -331,4 +372,9 @@ fn set_bluetooth_on(ui: &AppWindow) {
             ui.set_bluetooth_on(false);
         }
     }
+}
+
+fn saved_devices(ui: &AppWindow) {
+    let device_names: VecModel<SharedString> = VecModel::from(get_saved_devices());
+    display_saved_devices(ui, device_names);
 }
