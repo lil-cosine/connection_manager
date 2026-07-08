@@ -16,12 +16,6 @@ struct AccessPoint {
     in_use: bool,
 }
 
-struct BluetoothDevice {
-    name: String,
-    mac_address: String,
-    in_use: bool,
-}
-
 fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
@@ -328,7 +322,7 @@ fn toggle_bluetooth(ui: &AppWindow) {
     }
 }
 
-fn get_saved_devices() -> Vec<SharedString> {
+fn get_saved_devices() -> Vec<BluetoothDevice> {
     let devices = Command::new("bluetoothctl")
         .args(["devices", "Paired"])
         .output()
@@ -336,26 +330,26 @@ fn get_saved_devices() -> Vec<SharedString> {
 
     let stdout = String::from_utf8_lossy(&devices.stdout);
 
-    let saved_devices: Vec<&str> = stdout
+    let saved_devices: Vec<BluetoothDevice> = stdout
         .lines()
         .filter_map(|line| {
             let mut result = line.split_whitespace();
-            let _id_type = result.next()?;
-            let _mac_address = result.next()?;
-            let name = result.next()?;
+            result.next()?;
+            let mac_address = result.next()?.to_string();
+            let name = result.collect::<Vec<_>>().join(" ");
 
-            (name.len() != 17
-                || (name.len() == 17
-                    && name.chars().nth(2).unwrap() != ':'
-                    && name.chars().nth(5).unwrap() != ':'))
-                .then_some(name)
+            if name.is_empty() || name == mac_address {
+                return None;
+            };
+            Some(BluetoothDevice {
+                name: name.into(),
+                mac_address: mac_address.into(),
+                connected: false,
+            })
         })
         .collect();
 
     saved_devices
-        .into_iter()
-        .map(SharedString::from)
-        .collect::<Vec<_>>()
 }
 
 // Display
@@ -371,8 +365,8 @@ fn display_saved_networks(ui: &AppWindow, ssids: VecModel<SharedString>) {
     ui.set_networks(ModelRc::new(ssids));
 }
 
-fn display_saved_devices(ui: &AppWindow, device_names: VecModel<SharedString>) {
-    ui.set_saved_devices(ModelRc::new(device_names));
+fn display_saved_devices(ui: &AppWindow, devices: VecModel<BluetoothDevice>) {
+    ui.set_saved_devices(ModelRc::new(devices));
 }
 
 // Mains
@@ -422,6 +416,6 @@ fn set_bluetooth_on(ui: &AppWindow) {
 }
 
 fn saved_devices(ui: &AppWindow) {
-    let device_names: VecModel<SharedString> = VecModel::from(get_saved_devices());
-    display_saved_devices(ui, device_names);
+    let devices: VecModel<BluetoothDevice> = VecModel::from(get_saved_devices());
+    display_saved_devices(ui, devices);
 }

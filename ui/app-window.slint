@@ -1,5 +1,11 @@
 import { Button, LineEdit, Switch } from "std-widgets.slint";
 
+export struct BluetoothDevice {
+    name: string,
+    mac_address: string,
+    connected: bool,
+}
+
 export component AppWindow inherits Window {
     callback refresh-networks();
     callback connect(ssid: string);
@@ -13,7 +19,7 @@ export component AppWindow inherits Window {
     in property <string> curnet;
     in property <[string]> networks;
     in property <[string]> avail-networks;
-    in property <[string]> saved-devices;
+    in property <[BluetoothDevice]> saved-devices;
     in property <bool> wifi-on: false;
     in property <bool> bluetooth-on: false;
     in-out property <string> pending-ssid;
@@ -153,7 +159,7 @@ export component AppWindow inherits Window {
             HorizontalLayout {
                 spacing: 10px;
                 Text {
-                    text: device;
+                    text: device.name;
                 }
                 Button {
                     width: 80px;
