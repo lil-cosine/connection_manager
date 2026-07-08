@@ -74,6 +74,13 @@ fn main() -> Result<(), Box<dyn Error>> {
     });
 
     let ui_weak = ui.as_weak();
+    ui.on_toggle_wifi(move || {
+        if let Some(ui) = ui_weak.upgrade() {
+            toggle_wifi(&ui);
+        }
+    });
+
+    let ui_weak = ui.as_weak();
     ui.on_toggle_bluetooth(move || {
         if let Some(ui) = ui_weak.upgrade() {
             toggle_bluetooth(&ui);
@@ -88,6 +95,7 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    set_wifi_on(&ui);
     cur_network(&ui);
     avail_networks(&ui);
     saved_networks(&ui);
@@ -272,6 +280,30 @@ fn get_saved_networks() -> Vec<SharedString> {
         .collect::<Vec<_>>()
 }
 
+fn enable_wifi() {
+    Command::new("nmcli")
+        .args(["radio", "wifi", "on"])
+        .output()
+        .expect("unable to enable wifi");
+}
+
+fn disable_wifi() {
+    Command::new("nmcli")
+        .args(["radio", "wifi", "off"])
+        .output()
+        .expect("unable to disable wifi");
+}
+
+fn toggle_wifi(ui: &AppWindow) {
+    if ui.get_wifi_on() {
+        disable_wifi();
+        ui.set_wifi_on(false);
+    } else {
+        enable_wifi();
+        ui.set_wifi_on(true);
+    }
+}
+
 fn enable_bluetooth() {
     Command::new("bluetoothctl")
         .args(["power", "on"])
@@ -357,6 +389,21 @@ fn avail_networks(ui: &AppWindow) {
 fn saved_networks(ui: &AppWindow) {
     let networks: VecModel<SharedString> = VecModel::from(get_saved_networks());
     display_saved_networks(ui, networks);
+}
+
+fn set_wifi_on(ui: &AppWindow) {
+    let output = Command::new("nmcli").args(["radio", "wifi"]).output();
+
+    match output {
+        Ok(o) => {
+            let status = String::from_utf8_lossy(&o.stdout);
+            ui.set_wifi_on(status.trim() == "enabled");
+        }
+        Err(e) => {
+            eprintln!("failed to run nmcli: {e}");
+            ui.set_wifi_on(false);
+        }
+    }
 }
 
 fn set_bluetooth_on(ui: &AppWindow) {
