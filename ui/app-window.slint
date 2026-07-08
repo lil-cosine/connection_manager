@@ -8,11 +8,13 @@ export component AppWindow inherits Window {
     callback forget(ssid: string);
     callback show-password-popup();
     callback toggle-bluetooth();
+    callback toggle-wifi();
     property <bool> bluetooth: false;
     in property <string> curnet;
     in property <[string]> networks;
     in property <[string]> avail-networks;
     in property <[string]> saved-devices;
+    in property <bool> wifi-on: false;
     in property <bool> bluetooth-on: false;
     in-out property <string> pending-ssid;
     in-out property <bool> password-error: false;
@@ -44,7 +46,14 @@ export component AppWindow inherits Window {
         if !root.bluetooth : VerticalLayout {
             padding: 15px;
             spacing: 10px;
-
+            Switch {
+              text: "Wifi";
+              checked: root.wifi-on;
+              toggled() => {
+                toggle-wifi();
+              }
+            }
+            if root.wifi-on : VerticalLayout{
             Text {
                 font-size: 20px;
                 text: "Current Network";
@@ -121,6 +130,7 @@ export component AppWindow inherits Window {
                     }
                 }
             }
+          }
         }
 
         if root.bluetooth : VerticalLayout {
