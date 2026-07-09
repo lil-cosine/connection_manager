@@ -109,6 +109,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     ui.on_refresh_bluetooth(move || {
         if let Some(ui) = ui_weak.upgrade() {
             saved_devices(&ui);
+            scan_new_devices();
+            new_devices(&ui);
         }
     });
 
@@ -118,6 +120,8 @@ fn main() -> Result<(), Box<dyn Error>> {
     saved_networks(&ui);
     set_bluetooth_on(&ui);
     saved_devices(&ui);
+    //scan_new_devices();
+    new_devices(&ui);
 
     ui.run()?;
 
@@ -361,7 +365,7 @@ fn get_saved_devices() -> Vec<BluetoothDevice> {
             let mac_address = result.next()?.to_string();
             let name = result.collect::<Vec<_>>().join(" ");
 
-            if name.is_empty() || name == mac_address {
+            if name.is_empty() || is_nameless(&name, &mac_address) {
                 return None;
             };
             Some(BluetoothDevice {
@@ -373,6 +377,55 @@ fn get_saved_devices() -> Vec<BluetoothDevice> {
         .collect();
 
     saved_devices
+}
+
+fn scan_new_devices() {
+    Command::new("bluetoothctl")
+        .args(["--timeout", "5", "scan", "on"])
+        .output()
+        .expect("failed to run bluetoothctl");
+}
+
+fn get_new_devices() -> Vec<BluetoothDevice> {
+    let devices = Command::new("bluetoothctl")
+        .args(["devices"])
+        .output()
+        .expect("failed to run bluetoothctl");
+
+    let stdout = String::from_utf8_lossy(&devices.stdout);
+
+    let new_devices: Vec<BluetoothDevice> = stdout
+        .lines()
+        .filter_map(|line| {
+            let mut result = line.split_whitespace();
+            result.next()?;
+            let mac_address = result.next()?.to_string();
+            let name = result.collect::<Vec<_>>().join(" ");
+
+            if name.is_empty() || is_nameless(&name, &mac_address) || is_device_paired(&mac_address)
+            {
+                return None;
+            };
+            Some(BluetoothDevice {
+                name: name.into(),
+                connected: false,
+                mac_address: mac_address.into(),
+            })
+        })
+        .collect();
+
+    new_devices
+}
+
+fn is_nameless(name: &str, mac_address: &str) -> bool {
+    if name == mac_address {
+        return true;
+    }
+    if name.len() == 17 && name.replace('-', ":") == mac_address {
+        return true;
+    }
+
+    false
 }
 
 fn is_device_connected(mac_address: &str) -> bool {
@@ -399,6 +452,34 @@ fn is_device_connected(mac_address: &str) -> bool {
     stdout
         .lines()
         .find_map(|line| line.trim().strip_prefix("Connected:"))
+        .map(|value| value.trim() == "yes")
+        .unwrap_or(false)
+}
+
+fn is_device_paired(mac_address: &str) -> bool {
+    let info = Command::new("bluetoothctl")
+        .args(["info", mac_address])
+        .output();
+    let output = match info {
+        Ok(o) if o.status.success() => o,
+        Ok(o) => {
+            eprintln!(
+                "bluetoothctl exited with error: {}",
+                String::from_utf8_lossy(&o.stderr)
+            );
+            return false;
+        }
+        Err(e) => {
+            eprintln!("failed to run bluetoothctl: {e}");
+            return false;
+        }
+    };
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    stdout
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("Paired:"))
         .map(|value| value.trim() == "yes")
         .unwrap_or(false)
 }
@@ -432,6 +513,10 @@ fn display_saved_networks(ui: &AppWindow, ssids: VecModel<SharedString>) {
 
 fn display_saved_devices(ui: &AppWindow, devices: VecModel<BluetoothDevice>) {
     ui.set_saved_devices(ModelRc::new(devices));
+}
+
+fn display_new_devices(ui: &AppWindow, devices: VecModel<BluetoothDevice>) {
+    ui.set_new_devices(ModelRc::new(devices));
 }
 
 // Mains
@@ -483,4 +568,9 @@ fn set_bluetooth_on(ui: &AppWindow) {
 fn saved_devices(ui: &AppWindow) {
     let devices: VecModel<BluetoothDevice> = VecModel::from(get_saved_devices());
     display_saved_devices(ui, devices);
+}
+
+fn new_devices(ui: &AppWindow) {
+    let devices: VecModel<BluetoothDevice> = VecModel::from(get_new_devices());
+    display_new_devices(ui, devices);
 }
