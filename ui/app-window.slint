@@ -8,6 +8,7 @@ export struct BluetoothDevice {
 
 export component AppWindow inherits Window {
     callback refresh-networks();
+    callback refresh-bluetooth();
     callback connect(ssid: string);
     callback connect-new(ssid: string, password: string);
     callback disconnect(ssid: string);
@@ -15,6 +16,8 @@ export component AppWindow inherits Window {
     callback show-password-popup();
     callback toggle-bluetooth();
     callback toggle-wifi();
+    callback connect-known-device(device: BluetoothDevice);
+    callback disconnect-known-device(device: BluetoothDevice);
     property <bool> bluetooth: false;
     in property <string> curnet;
     in property <[string]> networks;
@@ -165,9 +168,19 @@ export component AppWindow inherits Window {
                     width: 80px;
                     text: "Forget";
                 }
-                Button {
-                    width: 80px;
-                    text: "Connect";
+                if device.connected : HorizontalLayout {
+                  Button {
+                      width: 80px;
+                      text: "Disconnect";
+                      clicked => { disconnect-known-device(device); }
+                  }
+                }
+                if !device.connected : HorizontalLayout {
+                  Button {
+                      width: 80px;
+                      text: "Connect";
+                      clicked => { connect-known-device(device); }
+                  }
                 }
               }
             }
@@ -186,6 +199,7 @@ export component AppWindow inherits Window {
             }
             Button {
                 text: "Refresh";
+                clicked => { refresh-bluetooth(); }
             }
             }
         }

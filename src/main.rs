@@ -89,6 +89,29 @@ fn main() -> Result<(), Box<dyn Error>> {
         }
     });
 
+    let ui_weak = ui.as_weak();
+    ui.on_connect_known_device(move |device| {
+        on_connect_known_device(&device.mac_address);
+        if let Some(ui) = ui_weak.upgrade() {
+            saved_devices(&ui);
+        }
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_disconnect_known_device(move |device| {
+        on_disconnect_known_device(&device.mac_address);
+        if let Some(ui) = ui_weak.upgrade() {
+            saved_devices(&ui);
+        }
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_refresh_bluetooth(move || {
+        if let Some(ui) = ui_weak.upgrade() {
+            saved_devices(&ui);
+        }
+    });
+
     set_wifi_on(&ui);
     cur_network(&ui);
     avail_networks(&ui);
@@ -343,13 +366,55 @@ fn get_saved_devices() -> Vec<BluetoothDevice> {
             };
             Some(BluetoothDevice {
                 name: name.into(),
+                connected: is_device_connected(mac_address.as_str()),
                 mac_address: mac_address.into(),
-                connected: false,
             })
         })
         .collect();
 
     saved_devices
+}
+
+fn is_device_connected(mac_address: &str) -> bool {
+    let info = Command::new("bluetoothctl")
+        .args(["info", mac_address])
+        .output();
+    let output = match info {
+        Ok(o) if o.status.success() => o,
+        Ok(o) => {
+            eprintln!(
+                "bluetoothctl exited with error: {}",
+                String::from_utf8_lossy(&o.stderr)
+            );
+            return false;
+        }
+        Err(e) => {
+            eprintln!("failed to run bluetoothctl: {e}");
+            return false;
+        }
+    };
+
+    let stdout = String::from_utf8_lossy(&output.stdout);
+
+    stdout
+        .lines()
+        .find_map(|line| line.trim().strip_prefix("Connected:"))
+        .map(|value| value.trim() == "yes")
+        .unwrap_or(false)
+}
+
+fn on_connect_known_device(mac_address: &str) {
+    Command::new("bluetoothctl")
+        .args(["connect", mac_address])
+        .output()
+        .expect("failed to run bluetoothctl");
+}
+
+fn on_disconnect_known_device(mac_address: &str) {
+    Command::new("bluetoothctl")
+        .args(["disconnect", mac_address])
+        .output()
+        .expect("failed to run bluetoothctl");
 }
 
 // Display
