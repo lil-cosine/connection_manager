@@ -91,7 +91,7 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let ui_weak = ui.as_weak();
     ui.on_connect_known_device(move |device| {
-        on_connect_known_device(&device.mac_address);
+        on_connect_device(&device.mac_address);
         if let Some(ui) = ui_weak.upgrade() {
             saved_devices(&ui);
         }
@@ -109,7 +109,27 @@ fn main() -> Result<(), Box<dyn Error>> {
     ui.on_refresh_bluetooth(move || {
         if let Some(ui) = ui_weak.upgrade() {
             saved_devices(&ui);
-            scan_new_devices();
+            scan_new_devices(5);
+            new_devices(&ui);
+        }
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_connect_new_device(move |device| {
+        on_connect_new_device(&device.mac_address);
+        if let Some(ui) = ui_weak.upgrade() {
+            saved_devices(&ui);
+            scan_new_devices(2);
+            new_devices(&ui);
+        }
+    });
+
+    let ui_weak = ui.as_weak();
+    ui.on_forget_device(move |device| {
+        on_forget_device(&device.mac_address);
+        if let Some(ui) = ui_weak.upgrade() {
+            saved_devices(&ui);
+            scan_new_devices(2);
             new_devices(&ui);
         }
     });
@@ -120,7 +140,7 @@ fn main() -> Result<(), Box<dyn Error>> {
     saved_networks(&ui);
     set_bluetooth_on(&ui);
     saved_devices(&ui);
-    //scan_new_devices();
+    scan_new_devices(2);
     new_devices(&ui);
 
     ui.run()?;
@@ -379,9 +399,9 @@ fn get_saved_devices() -> Vec<BluetoothDevice> {
     saved_devices
 }
 
-fn scan_new_devices() {
+fn scan_new_devices(timeout: i32) {
     Command::new("bluetoothctl")
-        .args(["--timeout", "5", "scan", "on"])
+        .args(["--timeout", &timeout.to_string(), "scan", "on"])
         .output()
         .expect("failed to run bluetoothctl");
 }
@@ -484,11 +504,30 @@ fn is_device_paired(mac_address: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn on_connect_known_device(mac_address: &str) {
+fn on_connect_device(mac_address: &str) {
     Command::new("bluetoothctl")
         .args(["connect", mac_address])
         .output()
-        .expect("failed to run bluetoothctl");
+        .expect("unable to connect to device");
+}
+
+fn on_trust_device(mac_address: &str) {
+    Command::new("bluetoothctl")
+        .args(["trust", mac_address])
+        .output()
+        .expect("unable to trust new device");
+}
+
+fn on_forget_device(mac_address: &str) {
+    Command::new("bluetoothctl")
+        .args(["remove", mac_address])
+        .output()
+        .expect("unable to forget device");
+}
+
+fn on_connect_new_device(mac_address: &str) {
+    on_connect_device(mac_address);
+    on_trust_device(mac_address);
 }
 
 fn on_disconnect_known_device(mac_address: &str) {

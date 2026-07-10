@@ -17,7 +17,9 @@ export component AppWindow inherits Window {
     callback toggle-bluetooth();
     callback toggle-wifi();
     callback connect-known-device(device: BluetoothDevice);
+    callback connect-new-device(device: BluetoothDevice);
     callback disconnect-known-device(device: BluetoothDevice);
+    callback forget-device(device: BluetoothDevice);
     property <bool> bluetooth: false;
     in property <string> curnet;
     in property <[string]> networks;
@@ -42,170 +44,205 @@ export component AppWindow inherits Window {
                 width: 100px;
                 height: 30px;
                 text: "Network";
-                clicked => { root.bluetooth = false; }
+                clicked => {
+                    root.bluetooth = false;
+                }
             }
 
             Button {
                 width: 100px;
                 height: 30px;
                 text: "Bluetooth";
-                clicked => { root.bluetooth = true; }
+                clicked => {
+                    root.bluetooth = true;
+                }
             }
         }
 
-        if !root.bluetooth : VerticalLayout {
+        if !root.bluetooth: VerticalLayout {
             padding: 15px;
             spacing: 10px;
             Switch {
-              text: "Wifi";
-              checked: root.wifi-on;
-              toggled() => {
-                toggle-wifi();
-              }
-            }
-            if root.wifi-on : VerticalLayout{
-            Text {
-                font-size: 20px;
-                text: "Current Network";
-            }
-
-            if root.curnet != "None" : VerticalLayout {
-                HorizontalLayout {
-                    spacing: 10px;
-                    Text {
-                        text: curnet;
-                    }
-                    Button {
-                        width: 100px;
-                        text: "Disconnect";
-                        clicked => { root.disconnect(curnet); }
-                    }
-                    Button {
-                        width: 75px;
-                        text: "Forget";
-                        clicked => { root.forget(curnet); }
-                    }
+                text: "Wifi";
+                checked: root.wifi-on;
+                toggled() => {
+                    toggle-wifi();
                 }
             }
 
-            if root.curnet == "None" : VerticalLayout {
+            if root.wifi-on: VerticalLayout {
                 Text {
-                  font-size: 12px;
-                  text: "You are not currently connected to a network";
+                    font-size: 20px;
+                    text: "Current Network";
                 }
-            }
 
-            Button {
-                width: 80px;
-                text: "Refresh";
-                clicked => { root.refresh-networks(); }
-            }
-
-            Text {
-                font-size: 20px;
-                text: "Other Networks";
-            }
-            VerticalLayout {
-                for net in avail-networks :
+                if root.curnet != "None": VerticalLayout {
                     HorizontalLayout {
-                    spacing: 10px;
-                    Text {
-                        text: net;
+                        spacing: 10px;
+                        Text {
+                            text: curnet;
+                        }
+
+                        Button {
+                            width: 100px;
+                            text: "Disconnect";
+                            clicked => {
+                                root.disconnect(curnet);
+                            }
+                        }
+
+                        Button {
+                            width: 75px;
+                            text: "Forget";
+                            clicked => {
+                                root.forget(curnet);
+                            }
+                        }
                     }
-                    Button {
-                        width: 80px;
-                        text: "Connect";
-                        clicked => { connect(net); }
+                }
+
+                if root.curnet == "None": VerticalLayout {
+                    Text {
+                        font-size: 12px;
+                        text: "You are not currently connected to a network";
+                    }
+                }
+
+                Button {
+                    width: 80px;
+                    text: "Refresh";
+                    clicked => {
+                        root.refresh-networks();
+                    }
+                }
+
+                Text {
+                    font-size: 20px;
+                    text: "Other Networks";
+                }
+
+                VerticalLayout {
+                    for net in avail-networks: HorizontalLayout {
+                        spacing: 10px;
+                        Text {
+                            text: net;
+                        }
+
+                        Button {
+                            width: 80px;
+                            text: "Connect";
+                            clicked => {
+                                connect(net);
+                            }
+                        }
+                    }
+                }
+
+                Text {
+                    font-size: 20px;
+                    text: "Saved Networks";
+                }
+
+                VerticalLayout {
+                    for net in networks: HorizontalLayout {
+                        spacing: 10px;
+                        Text {
+                            text: net;
+                        }
+
+                        Button {
+                            width: 80px;
+                            text: "Forget";
+                            clicked => {
+                                root.forget(net);
+                            }
+                        }
                     }
                 }
             }
-
-
-            Text {
-                font-size: 20px;
-                text: "Saved Networks";
-            }
-            VerticalLayout {
-                for net in networks :
-                    HorizontalLayout {
-                    spacing: 10px;
-                    Text {
-                        text: net;
-                    }
-                    Button {
-                        width: 80px;
-                        text: "Forget";
-                        clicked => { root.forget(net); }
-
-                    }
-                }
-            }
-          }
         }
 
-        if root.bluetooth : VerticalLayout {
-             padding: 15px;
+        if root.bluetooth: VerticalLayout {
+            padding: 15px;
             spacing: 10px;
             Switch {
-              text: "Bluetooth";
-              checked: root.bluetooth-on;
-              toggled() => {
-                toggle-bluetooth();
-              }
+                text: "Bluetooth";
+                checked: root.bluetooth-on;
+                toggled() => {
+                    toggle-bluetooth();
+                }
             }
-            if root.bluetooth-on : VerticalLayout {
-            Text {
-                text: "Saved Devices";
-            }
-            VerticalLayout{
-              for device in saved-devices :
 
-            HorizontalLayout {
-                spacing: 10px;
+            if root.bluetooth-on: VerticalLayout {
                 Text {
-                    text: device.name;
+                    font-size: 20px;
+                    text: "Saved Devices";
                 }
-                Button {
-                    width: 80px;
-                    text: "Forget";
+
+                VerticalLayout {
+                    for device in saved-devices: HorizontalLayout {
+                        spacing: 10px;
+                        Text {
+                            text: device.name;
+                        }
+
+                        if device.connected: HorizontalLayout {
+                            Button {
+                                width: 100px;
+                                text: "Disconnect";
+                                clicked => {
+                                    disconnect-known-device(device);
+                                }
+                            }
+                        }
+                        if !device.connected: HorizontalLayout {
+                            Button {
+                                width: 100px;
+                                text: "Connect";
+                                clicked => {
+                                    connect-known-device(device);
+                                }
+                            }
+                        }
+                        Button {
+                            width: 75px;
+                            text: "Forget";
+                            clicked => {
+                                forget-device(device);
+                            }
+                        }
+                    }
                 }
-                if device.connected : HorizontalLayout {
-                  Button {
-                      width: 80px;
-                      text: "Disconnect";
-                      clicked => { disconnect-known-device(device); }
-                  }
-                }
-                if !device.connected : HorizontalLayout {
-                  Button {
-                      width: 80px;
-                      text: "Connect";
-                      clicked => { connect-known-device(device); }
-                  }
-                }
-              }
-            }
-            Text {
-                text: "Other Devices";
-            }
-            VerticalLayout {
-            for device in new-devices :
-            HorizontalLayout {
-                spacing: 10px;
+
                 Text {
-                    text: device.name;
+                    font-size: 20px;
+                    text: "Other Devices";
                 }
-                Button {
-                    width: 80px;
-                    text: "Connect";
+
+                VerticalLayout {
+                    for device in new-devices: HorizontalLayout {
+                        spacing: 10px;
+                        Text {
+                            text: device.name;
+                        }
+
+                        Button {
+                            width: 80px;
+                            text: "Connect";
+                            clicked => {
+                                connect-new-device(device);
+                            }
+                        }
+                    }
+                    Button {
+                        width: 80px;
+                        text: "Refresh";
+                        clicked => {
+                            refresh-bluetooth();
+                        }
+                    }
                 }
             }
-            Button {
-                text: "Refresh";
-                clicked => { refresh-bluetooth(); }
-            }
-            }
-          }
         }
     }
 
@@ -220,7 +257,7 @@ export component AppWindow inherits Window {
         function submit-password(password: string) {
             root.connect-new(root.pending-ssid, password);
             if (!root.password-error) {
-              password-popup.close();
+                password-popup.close();
             }
         }
 
@@ -240,10 +277,12 @@ export component AppWindow inherits Window {
 
                 password-input := LineEdit {
                     input-type: password;
-                    accepted(text) => { submit-password(text); }
+                    accepted(text) => {
+                        submit-password(text);
+                    }
                 }
 
-                if root.password-error : Text {
+                if root.password-error: Text {
                     text: root.password-error-text;
                     color: red;
                     font-size: 12px;
@@ -252,7 +291,9 @@ export component AppWindow inherits Window {
 
                 Button {
                     text: "Connect";
-                    clicked => { submit-password(password-input.text); }
+                    clicked => {
+                        submit-password(password-input.text);
+                    }
                 }
             }
         }
