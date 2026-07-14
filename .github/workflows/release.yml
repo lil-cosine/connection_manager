@@ -1,0 +1,37 @@
+name: Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - name: Build release binary
+        run: cargo build --release
+
+
+      - name: Package binary
+        run: |
+          mkdir dist
+          cp target/release/connection-manager dist/
+          tar -czf connection-manager-linux-x86_64.tar.gz -C dist .
+
+      - name: Set release tag
+        run: echo "TAG_NAME=build-$(git rev-parse --short HEAD)" >> "$GITHUB_ENV"
+
+      - uses: softprops/action-gh-release@v2
+        with:
+          tag_name: ${{ env.TAG_NAME }}
+          name: "Build ${{ env.TAG_NAME }}"
+          files: connection-manager-linux-x86_64.tar.gz
+          generate_release_notes: true
