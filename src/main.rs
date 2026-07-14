@@ -113,7 +113,9 @@ fn main() -> Result<(), Box<dyn Error>> {
             if let Err(e) = on_connect_device(&device.mac_address) {
                 show_error(&ui, e);
             }
-            saved_devices(&ui);
+            if let Err(e) = saved_devices(&ui) {
+                show_error(&ui, e);
+            }
         }
     });
 
@@ -123,14 +125,18 @@ fn main() -> Result<(), Box<dyn Error>> {
             if let Err(e) = on_disconnect_known_device(&device.mac_address) {
                 show_error(&ui, e);
             }
-            saved_devices(&ui);
+            if let Err(e) = saved_devices(&ui) {
+                show_error(&ui, e);
+            }
         }
     });
 
     let ui_weak = ui.as_weak();
     ui.on_refresh_bluetooth(move || {
         if let Some(ui) = ui_weak.upgrade() {
-            saved_devices(&ui);
+            if let Err(e) = saved_devices(&ui) {
+                show_error(&ui, e);
+            }
         }
 
         let ui_weak = ui_weak.clone();
@@ -140,14 +146,25 @@ fn main() -> Result<(), Box<dyn Error>> {
                     show_error(&ui, e);
                 }
             }
-            let ui_weak = ui_weak.clone();
-            let devices = get_new_devices();
 
-            let _ = slint::invoke_from_event_loop(move || {
-                if let Some(ui) = ui_weak.upgrade() {
-                    display_new_devices(&ui, VecModel::from(devices));
+            match get_new_devices() {
+                Ok(devices) => {
+                    let ui_weak = ui_weak.clone();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            display_new_devices(&ui, VecModel::from(devices));
+                        }
+                    });
                 }
-            });
+                Err(e) => {
+                    let ui_weak = ui_weak.clone();
+                    let _ = slint::invoke_from_event_loop(move || {
+                        if let Some(ui) = ui_weak.upgrade() {
+                            show_error(&ui, e);
+                        }
+                    });
+                }
+            }
         });
     });
 
@@ -157,11 +174,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             if let Err(e) = on_connect_new_device(&device.mac_address) {
                 show_error(&ui, e);
             }
-            saved_devices(&ui);
+            if let Err(e) = saved_devices(&ui) {
+                show_error(&ui, e);
+            }
             if let Err(e) = scan_new_devices(2) {
                 show_error(&ui, e);
             }
-            new_devices(&ui);
+            if let Err(e) = new_devices(&ui) {
+                show_error(&ui, e);
+            }
         }
     });
 
@@ -171,11 +192,15 @@ fn main() -> Result<(), Box<dyn Error>> {
             if let Err(e) = on_forget_device(&device.mac_address) {
                 show_error(&ui, e);
             }
-            saved_devices(&ui);
+            if let Err(e) = saved_devices(&ui) {
+                show_error(&ui, e);
+            }
             if let Err(e) = scan_new_devices(2) {
                 show_error(&ui, e);
             }
-            new_devices(&ui);
+            if let Err(e) = new_devices(&ui) {
+                show_error(&ui, e);
+            }
         }
     });
 
@@ -192,13 +217,25 @@ fn main() -> Result<(), Box<dyn Error>> {
                         show_error(&ui, e);
                     }
                 }
-                let ui_weak = ui_weak.clone();
-                let devices = get_new_devices();
-                let _ = slint::invoke_from_event_loop(move || {
-                    if let Some(ui) = ui_weak.upgrade() {
-                        display_new_devices(&ui, VecModel::from(devices));
+
+                match get_new_devices() {
+                    Ok(devices) => {
+                        let ui_weak = ui_weak.clone();
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_weak.upgrade() {
+                                display_new_devices(&ui, VecModel::from(devices));
+                            }
+                        });
                     }
-                });
+                    Err(e) => {
+                        let ui_weak = ui_weak.clone();
+                        let _ = slint::invoke_from_event_loop(move || {
+                            if let Some(ui) = ui_weak.upgrade() {
+                                show_error(&ui, e);
+                            }
+                        });
+                    }
+                }
             });
         },
     );
@@ -216,9 +253,15 @@ fn main() -> Result<(), Box<dyn Error>> {
         show_error(&ui, e);
     }
 
-    set_bluetooth_on(&ui);
-    saved_devices(&ui);
-    new_devices(&ui);
+    if let Err(e) = set_bluetooth_on(&ui) {
+        show_error(&ui, e);
+    }
+    if let Err(e) = saved_devices(&ui) {
+        show_error(&ui, e);
+    }
+    if let Err(e) = new_devices(&ui) {
+        show_error(&ui, e);
+    }
 
     ui.run()?;
 

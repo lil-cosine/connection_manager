@@ -26,7 +26,7 @@ pub fn toggle_bluetooth(ui: &AppWindow) -> Result<(), String> {
     }
 }
 
-pub fn set_bluetooth_on(ui: &AppWindow) {
+pub fn set_bluetooth_on(ui: &AppWindow) -> Result<(), String> {
     let output = Command::new("bluetoothctl").args(["show"]).output();
 
     let powered = match output {
@@ -35,27 +35,31 @@ pub fn set_bluetooth_on(ui: &AppWindow) {
             .find_map(|l| l.trim().strip_prefix("Powered:"))
             .map(|v| v.trim() == "yes")
             .unwrap_or(false),
-        _ => false,
+        Ok(_) => false,
+        Err(e) => return Err(e.to_string()),
     };
 
     ui.set_bluetooth_on(powered);
+    Ok(())
 }
 
-pub fn saved_devices(ui: &AppWindow) {
-    let devices: VecModel<BluetoothDevice> = VecModel::from(get_saved_devices());
+pub fn saved_devices(ui: &AppWindow) -> Result<(), String> {
+    let devices: VecModel<BluetoothDevice> = VecModel::from(get_saved_devices()?);
     display_saved_devices(ui, devices);
+    Ok(())
 }
 
-pub fn new_devices(ui: &AppWindow) {
-    let devices: VecModel<BluetoothDevice> = VecModel::from(get_new_devices());
+pub fn new_devices(ui: &AppWindow) -> Result<(), String> {
+    let devices: VecModel<BluetoothDevice> = VecModel::from(get_new_devices()?);
     display_new_devices(ui, devices);
+    Ok(())
 }
 
-pub fn get_new_devices() -> Vec<BluetoothDevice> {
+pub fn get_new_devices() -> Result<Vec<BluetoothDevice>, String> {
     let devices = Command::new("bluetoothctl")
         .args(["devices"])
         .output()
-        .expect("failed to run bluetoothctl");
+        .map_err(|e| format!("failed to run bluetoothctl: {e}"))?;
 
     let stdout = String::from_utf8_lossy(&devices.stdout);
 
@@ -69,7 +73,7 @@ pub fn get_new_devices() -> Vec<BluetoothDevice> {
 
             if name.is_empty()
                 || is_nameless(&name, &mac_address)
-                || is_device_paired(&mac_address)
+                || is_device_paired(&mac_address).ok()?
                 || !is_valid_mac(&mac_address)
             {
                 return None;
@@ -82,7 +86,7 @@ pub fn get_new_devices() -> Vec<BluetoothDevice> {
         })
         .collect();
 
-    new_devices
+    Ok(new_devices)
 }
 
 pub fn on_connect_device(mac_address: &str) -> Result<(), String> {
@@ -144,11 +148,11 @@ fn disable_bluetooth() -> Result<(), String> {
         .map_err(|e| format!("failed to disable bluetooth: {e}"))
 }
 
-fn get_saved_devices() -> Vec<BluetoothDevice> {
+fn get_saved_devices() -> Result<Vec<BluetoothDevice>, String> {
     let devices = Command::new("bluetoothctl")
         .args(["devices", "Paired"])
         .output()
-        .expect("failed to run bluetoothctl");
+        .map_err(|e| format!("failed to run bluetoothctl: {e}"))?;
 
     let stdout = String::from_utf8_lossy(&devices.stdout);
 
@@ -165,13 +169,13 @@ fn get_saved_devices() -> Vec<BluetoothDevice> {
             };
             Some(BluetoothDevice {
                 name: name.into(),
-                connected: is_device_connected(mac_address.as_str()),
+                connected: is_device_connected(mac_address.as_str()).ok()?,
                 mac_address: mac_address.into(),
             })
         })
         .collect();
 
-    saved_devices
+    Ok(saved_devices)
 }
 
 fn is_nameless(name: &str, mac_address: &str) -> bool {
@@ -203,60 +207,52 @@ fn is_valid_mac(mac_address: &str) -> bool {
             })
 }
 
-fn is_device_connected(mac_address: &str) -> bool {
+fn is_device_connected(mac_address: &str) -> Result<bool, String> {
     let info = Command::new("bluetoothctl")
         .args(["info", mac_address])
         .output();
     let output = match info {
         Ok(o) if o.status.success() => o,
         Ok(o) => {
-            eprintln!(
-                "bluetoothctl exited with error: {}",
-                String::from_utf8_lossy(&o.stderr)
-            );
-            return false;
+            let err_msg = String::from_utf8_lossy(&o.stderr);
+            return Err(format!("bluetoothctl exited with error: {err_msg}"));
         }
         Err(e) => {
-            eprintln!("failed to run bluetoothctl: {e}");
-            return false;
+            return Err(format!("bluetoothctl exited with error: {e}"));
         }
     };
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    stdout
+    Ok(stdout
         .lines()
         .find_map(|line| line.trim().strip_prefix("Connected:"))
         .map(|value| value.trim() == "yes")
-        .unwrap_or(false)
+        .unwrap_or(false))
 }
 
-fn is_device_paired(mac_address: &str) -> bool {
+fn is_device_paired(mac_address: &str) -> Result<bool, String> {
     let info = Command::new("bluetoothctl")
         .args(["info", mac_address])
         .output();
     let output = match info {
         Ok(o) if o.status.success() => o,
         Ok(o) => {
-            eprintln!(
-                "bluetoothctl exited with error: {}",
-                String::from_utf8_lossy(&o.stderr)
-            );
-            return false;
+            let err_msg = String::from_utf8_lossy(&o.stderr);
+            return Err(format!("bluetoothctl exited with error: {err_msg}"));
         }
         Err(e) => {
-            eprintln!("failed to run bluetoothctl: {e}");
-            return false;
+            return Err(format!("bluetoothctl exited with error: {e}"));
         }
     };
 
     let stdout = String::from_utf8_lossy(&output.stdout);
 
-    stdout
+    Ok(stdout
         .lines()
         .find_map(|line| line.trim().strip_prefix("Paired:"))
         .map(|value| value.trim() == "yes")
-        .unwrap_or(false)
+        .unwrap_or(false))
 }
 
 fn on_trust_device(mac_address: &str) -> Result<(), String> {
