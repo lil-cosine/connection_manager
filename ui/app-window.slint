@@ -32,6 +32,9 @@ export component AppWindow inherits Window {
     in-out property <bool> password-error: false;
     in-out property <string> password-error-text: "";
 
+    in property <string> error-text: "";
+    callback show-error-popup();
+
     VerticalLayout {
         padding: 20px;
         alignment: center;
@@ -299,7 +302,47 @@ export component AppWindow inherits Window {
         }
     }
 
+    error-popup := PopupWindow {
+        x: (root.width - self.width) / 2;
+        y: (root.height - self.height) / 2;
+        width: 250px;
+        height: 130px;
+        close-policy: close-on-click-outside;
+
+        Rectangle {
+            background: white;
+            border-width: 1px;
+            border-color: gray;
+
+            VerticalLayout {
+                padding: 10px;
+                spacing: 8px;
+
+                Text {
+                    text: "An error was encountered";
+                    wrap: word-wrap;
+                }
+
+                Text {
+                    text: error-text;
+                    wrap: word-wrap;
+                }
+
+                Button {
+                    text: "Close";
+                    clicked => {
+                        error-popup.close();
+                    }
+                }
+            }
+        }
+    }
+
     show-password-popup => {
         password-popup.show();
+    }
+
+    show-error-popup => {
+      error-popup.show();
     }
 }

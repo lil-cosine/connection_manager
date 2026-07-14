@@ -11,108 +11,147 @@ struct AccessPoint {
 }
 
 // public functions
-pub fn set_wifi_on(ui: &AppWindow) {
+pub fn set_wifi_on(ui: &AppWindow) -> Result<(), String> {
     let output = Command::new("nmcli").args(["radio", "wifi"]).output();
 
     match output {
         Ok(o) => {
             let status = String::from_utf8_lossy(&o.stdout);
             ui.set_wifi_on(status.trim() == "enabled");
+            return Ok(());
         }
         Err(e) => {
-            eprintln!("failed to run nmcli: {e}");
             ui.set_wifi_on(false);
+            return Err(e.to_string());
         }
     }
 }
 
-pub fn toggle_wifi(ui: &AppWindow) {
+pub fn toggle_wifi(ui: &AppWindow) -> Result<(), String> {
     if ui.get_wifi_on() {
-        disable_wifi();
-        ui.set_wifi_on(false);
+        let result = disable_wifi();
+        match result {
+            Ok(_o) => {
+                ui.set_wifi_on(false);
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
     } else {
-        enable_wifi();
-        ui.set_wifi_on(true);
+        let result = enable_wifi();
+        match result {
+            Ok(_o) => {
+                ui.set_wifi_on(true);
+                return Ok(());
+            }
+            Err(e) => {
+                return Err(e);
+            }
+        }
     }
 }
 
-pub fn cur_network(ui: &AppWindow) {
-    let network: SharedString = get_cur_network().unwrap_or_else(|| SharedString::from("None"));
+pub fn cur_network(ui: &AppWindow) -> Result<(), String> {
+    let result = get_cur_network();
+    let network = match result {
+        Ok(o) => o,
+        Err(e) => return Err(e),
+    };
     display_cur_network(ui, network);
+    Ok(())
 }
 
-pub fn avail_networks(ui: &AppWindow) {
-    let networks: VecModel<SharedString> = VecModel::from(get_avail_networks());
+pub fn avail_networks(ui: &AppWindow) -> Result<(), String> {
+    let result = get_avail_networks();
+
+    let networks = match result {
+        Ok(o) => VecModel::from(o),
+        Err(e) => return Err(e),
+    };
     display_avail_networks(ui, networks);
+    Ok(())
 }
 
-pub fn saved_networks(ui: &AppWindow) {
-    let networks: VecModel<SharedString> = VecModel::from(get_saved_networks());
+pub fn saved_networks(ui: &AppWindow) -> Result<(), String> {
+    let result = get_saved_networks();
+
+    let networks = match result {
+        Ok(o) => VecModel::from(o),
+        Err(e) => return Err(e),
+    };
     display_saved_networks(ui, networks);
+    Ok(())
 }
 
-pub fn connect_new_network(ssid: &SharedString, password: &str) -> bool {
+pub fn connect_new_network(ssid: &SharedString, password: &str) -> Result<(), String> {
     let output = Command::new("nmcli")
         .args(["device", "wifi", "connect", ssid, "password", password])
         .output();
 
     match output {
-        Ok(o) if o.status.success() => true,
+        Ok(o) if o.status.success() => Ok(()),
         Ok(o) => {
-            eprintln!(
-                "nmcli exited with error: {}",
-                String::from_utf8_lossy(&o.stderr)
-            );
-            false
+            let err_msg = String::from_utf8_lossy(&o.stderr).to_string();
+            Err(format!("nmcli exited with error: {err_msg}"))
         }
-        Err(e) => {
-            eprintln!("failed to run nmcli: {e}");
-            false
-        }
+        Err(e) => Err(format!("nmcli exited with error: {e}")),
     }
 }
 
-pub fn try_connect_known(ssid: SharedString) -> bool {
-    let saved_ssids: Vec<SharedString> = get_saved_networks();
+pub fn try_connect_known(ssid: SharedString) -> Result<bool, String> {
+    let result = get_saved_networks();
+    let saved_ssids = match result {
+        Ok(o) => o,
+        Err(e) => return Err(e),
+    };
     for saved_ssid in saved_ssids.iter() {
         if *saved_ssid == ssid {
-            connect_saved_network(&ssid);
-            return true;
+            let result = connect_saved_network(&ssid);
+            match result {
+                Ok(_o) => return Ok(true),
+                Err(e) => return Err(e),
+            }
         }
     }
-    false
+    Ok(false)
 }
 
-pub fn disconnect_cur_network(ssid: &SharedString) {
+pub fn disconnect_cur_network(ssid: &SharedString) -> Result<(), String> {
     Command::new("nmcli")
         .args(["con", "down", ssid])
         .output()
-        .expect("failed to disconnect from current network");
+        .map(|_| ())
+        .map_err(|e| format!("failed to disconnect from current network: {e}"))
 }
 
-pub fn forget_network(ssid: &SharedString) {
+pub fn forget_network(ssid: &SharedString) -> Result<(), String> {
     Command::new("nmcli")
         .args(["con", "delete", ssid])
         .output()
-        .expect("failed to forget network");
+        .map(|_| ())
+        .map_err(|e| format!("failed to forget network: {e}"))
 }
 
 // private functions
-fn enable_wifi() {
+fn enable_wifi() -> Result<(), String> {
     Command::new("nmcli")
         .args(["radio", "wifi", "on"])
         .output()
-        .expect("unable to enable wifi");
+        .map(|_| ())
+        .map_err(|e| format!("failed to enable wifi: {e}"))
 }
 
-fn disable_wifi() {
+fn disable_wifi() -> Result<(), String> {
     Command::new("nmcli")
         .args(["radio", "wifi", "off"])
         .output()
-        .expect("unable to disable wifi");
+        .map(|_| ())
+        .map_err(|e| format!("failed to disable wifi: {e}"))
 }
 
-fn get_cur_network() -> Option<SharedString> {
+fn get_cur_network() -> Result<SharedString, String> {
     let output = Command::new("nmcli")
         .args(["-t", "-f", "ACTIVE,NAME,TYPE", "connection", "show"])
         .output();
@@ -120,15 +159,11 @@ fn get_cur_network() -> Option<SharedString> {
     let networks = match output {
         Ok(o) if o.status.success() => o,
         Ok(o) => {
-            eprintln!(
-                "nmcli exited with error: {}",
-                String::from_utf8_lossy(&o.stderr)
-            );
-            return None;
+            let err_msg = String::from_utf8_lossy(&o.stderr);
+            return Err(format!("nmcli exited with error: {err_msg}"));
         }
         Err(e) => {
-            eprintln!("failed to run nmcli: {e}");
-            return None;
+            return Err(format!("failed to run nmcli: {e}"));
         }
     };
 
@@ -146,14 +181,21 @@ fn get_cur_network() -> Option<SharedString> {
         })
         .collect();
 
-    wifi_networks.first().map(|s| SharedString::from(*s))
+    Ok(wifi_networks
+        .first()
+        .map(|s| SharedString::from(*s))
+        .unwrap_or_else(|| SharedString::from("None")))
 }
 
-fn get_saved_networks() -> Vec<SharedString> {
+fn get_saved_networks() -> Result<Vec<SharedString>, String> {
     let networks = Command::new("nmcli")
         .args(["-t", "-f", "ACTIVE,NAME,TYPE", "connection", "show"])
         .output()
-        .expect("failed to run nmcli");
+        .map_err(|e| format!("failed to disconnect from current network: {e}"))?;
+
+    if !networks.status.success() {
+        return Err(String::from_utf8_lossy(&networks.stderr).to_string());
+    }
 
     let stdout = String::from_utf8_lossy(&networks.stdout);
 
@@ -169,17 +211,21 @@ fn get_saved_networks() -> Vec<SharedString> {
         })
         .collect();
 
-    wifi_networks
+    Ok(wifi_networks
         .into_iter()
         .map(SharedString::from)
-        .collect::<Vec<_>>()
+        .collect::<Vec<_>>())
 }
 
-fn get_avail_networks() -> Vec<SharedString> {
+fn get_avail_networks() -> Result<Vec<SharedString>, String> {
     let networks = Command::new("nmcli")
         .args(["-t", "-f", "IN-USE,SSID,SIGNAL", "dev", "wifi", "list"])
         .output()
-        .expect("failed to run nmcli");
+        .map_err(|e| format!("failed to disconnect from current network: {e}"))?;
+
+    if !networks.status.success() {
+        return Err(String::from_utf8_lossy(&networks.stderr).to_string());
+    }
 
     let networks = String::from_utf8_lossy(&networks.stdout);
 
@@ -225,17 +271,18 @@ fn get_avail_networks() -> Vec<SharedString> {
 
     sorted_vec.sort_by(|a, b| b.signal.cmp(&a.signal));
 
-    sorted_vec
+    Ok(sorted_vec
         .iter()
         .map(|ap| SharedString::from(ap.ssid.clone()))
-        .collect()
+        .collect())
 }
 
-fn connect_saved_network(ssid: &SharedString) {
+fn connect_saved_network(ssid: &SharedString) -> Result<(), String> {
     Command::new("nmcli")
         .args(["con", "up", ssid])
         .output()
-        .expect("failed to connect to saved networks");
+        .map(|_| ())
+        .map_err(|e| format!("failed to connect to saved network: {e}"))
 }
 
 fn display_cur_network(ui: &AppWindow, ssid: SharedString) {

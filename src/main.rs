@@ -11,45 +11,60 @@ use wifi::*;
 
 slint::include_modules!();
 
+fn show_error(ui: &AppWindow, err: String) {
+    ui.set_error_text(err.into());
+    ui.invoke_show_error_popup();
+}
+
 fn main() -> Result<(), Box<dyn Error>> {
     let ui = AppWindow::new()?;
 
     let ui_weak = ui.as_weak();
     ui.on_toggle_wifi(move || {
         if let Some(ui) = ui_weak.upgrade() {
-            toggle_wifi(&ui);
+            if let Err(e) = toggle_wifi(&ui) {
+                show_error(&ui, e);
+            }
         }
     });
 
     let ui_weak = ui.as_weak();
     ui.on_refresh_networks(move || {
         if let Some(ui) = ui_weak.upgrade() {
-            cur_network(&ui);
-            avail_networks(&ui);
-            saved_networks(&ui);
+            if let Err(e) = cur_network(&ui) {
+                show_error(&ui, e);
+            }
+            if let Err(e) = avail_networks(&ui) {
+                show_error(&ui, e);
+            }
+            if let Err(e) = saved_networks(&ui) {
+                show_error(&ui, e);
+            }
         }
     });
 
     let ui_weak = ui.as_weak();
     ui.on_disconnect(move |ssid| {
-        disconnect_cur_network(&ssid);
         if let Some(ui) = ui_weak.upgrade() {
+            if let Err(e) = disconnect_cur_network(&ssid) {
+                show_error(&ui, e);
+            }
             ui.invoke_refresh_networks();
         }
     });
 
     let ui_weak = ui.as_weak();
     ui.on_connect(move |ssid| {
-        let found = try_connect_known(ssid.clone());
-
         if let Some(ui) = ui_weak.upgrade() {
-            if found {
-                ui.invoke_refresh_networks();
-            } else {
-                ui.set_pending_ssid(ssid);
-                ui.set_password_error(false);
-                ui.set_password_error_text("".into());
-                ui.invoke_show_password_popup();
+            match try_connect_known(ssid.clone()) {
+                Ok(true) => ui.invoke_refresh_networks(),
+                Ok(false) => {
+                    ui.set_pending_ssid(ssid);
+                    ui.set_password_error(false);
+                    ui.set_password_error_text("".into());
+                    ui.invoke_show_password_popup();
+                }
+                Err(e) => show_error(&ui, e),
             }
         }
     });
@@ -57,21 +72,28 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ui_weak = ui.as_weak();
     ui.on_connect_new(move |ssid, password| {
         if let Some(ui) = ui_weak.upgrade() {
-            if connect_new_network(&ssid, password.as_ref()) {
-                ui.set_password_error(false);
-                ui.invoke_refresh_networks();
-            } else {
-                forget_network(&ssid); // removes the network from the saved list
-                ui.set_password_error(true);
-                ui.set_password_error_text("Incorrect password, or connection failed.".into());
+            match connect_new_network(&ssid, password.as_ref()) {
+                Ok(()) => {
+                    ui.set_password_error(false);
+                    ui.invoke_refresh_networks();
+                }
+                Err(_e) => {
+                    if let Err(forget_err) = forget_network(&ssid) {
+                        show_error(&ui, forget_err);
+                    }
+                    ui.set_password_error(true);
+                    ui.set_password_error_text("Incorrect password, or connection failed.".into());
+                }
             }
         }
     });
 
     let ui_weak = ui.as_weak();
     ui.on_forget(move |ssid| {
-        forget_network(&ssid);
         if let Some(ui) = ui_weak.upgrade() {
+            if let Err(e) = forget_network(&ssid) {
+                show_error(&ui, e);
+            }
             ui.invoke_refresh_networks();
         }
     });
@@ -157,10 +179,18 @@ fn main() -> Result<(), Box<dyn Error>> {
         },
     );
 
-    set_wifi_on(&ui);
-    cur_network(&ui);
-    avail_networks(&ui);
-    saved_networks(&ui);
+    if let Err(e) = set_wifi_on(&ui) {
+        show_error(&ui, e);
+    }
+    if let Err(e) = cur_network(&ui) {
+        show_error(&ui, e);
+    }
+    if let Err(e) = avail_networks(&ui) {
+        show_error(&ui, e);
+    }
+    if let Err(e) = saved_networks(&ui) {
+        show_error(&ui, e);
+    }
 
     set_bluetooth_on(&ui);
     saved_devices(&ui);
