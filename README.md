@@ -1,38 +1,70 @@
-# Slint Rust Template
+# Connection Manager
 
-A template for a Rust application that's using [Slint](https://slint.rs/) for the user interface.
+A lightweight Linux desktop app for managing Wi-Fi and Bluetooth
+connections, built with Slint and Rust.
 
-## About
+![Rust](https://img.shields.io/badge/rust-%23000000.svg?style=for-the-badge&logo=rust&logoColor=white)
+![Slint](https://img.shields.io/badge/UI-Slint-1ac09e?style=for-the-badge)
+![Platform](https://img.shields.io/badge/platform-Linux-informational?style=for-the-badge&logo=linux&logoColor=white)
+![License](https://img.shields.io/badge/license-MIT-blue?style=for-the-badge)
 
-This template helps you get started developing a Rust application with Slint as toolkit
-for the user interface. It demonstrates the integration between the `.slint` UI markup and
-Rust code, how to react to callbacks, get and set properties, and use basic widgets.
+## Overview
 
-## Usage
+Connection Manager is a small, native GUI front-end for the Wi-Fi and
+Bluetooth tools already on your system (`nmcli` and `bluetoothctl`).
+It gives you a clean, minimal window for everyday connectivity tasks
+without needing a full desktop environment's network applet.
 
-1. Install Rust by following its [getting-started guide](https://www.rust-lang.org/learn/get-started).
-   Once this is done, you should have the `rustc` compiler and the `cargo` build system installed in your `PATH`.
-2. Download and extract the [ZIP archive of this repository](https://github.com/slint-ui/slint-rust-template/archive/refs/heads/main.zip).
-3. Rename the extracted directory and change into it:
-    ```
-    mv slint-rust-template-main my-project
-    cd my-project    
-    ```
-4. Build with `cargo`:
-    ```
-    cargo build
-    ```
-5. Run the application binary:
-    ```
-    cargo run
-    ```
+## Features
 
-We recommend using an IDE for development, along with our [LSP-based IDE integration for `.slint` files](https://github.com/slint-ui/slint/blob/master/tools/lsp/README.md). You can also load this project directly in [Visual Studio Code](https://code.visualstudio.com) and install our [Slint extension](https://marketplace.visualstudio.com/items?itemName=Slint.slint).
+**Wi-Fi**
+- Toggle the Wi-Fi radio on/off
+- View and disconnect from the currently active network
+- Browse nearby available networks, sorted by signal strength
+- Connect to new networks with a password prompt
+- View, reconnect to, and forget saved networks
 
-## Next Steps
+**Bluetooth**
+- Toggle the Bluetooth adapter on/off
+- View, connect to, disconnect from, and forget paired devices
+- Scan for and connect to new nearby devices
+- Automatic background scanning for new devices every 15 seconds
 
-We hope that this template helps you get started, and that you enjoy exploring making user interfaces with Slint. To learn more
-about the Slint APIs and the `.slint` markup language, check out our [online documentation](https://slint.dev/docs).
+**Reliability**
+- All system-command failures surface as an in-app error popup
+  instead of silently failing or crashing the application
 
-Don't forget to edit this readme to replace it by yours, and edit the `name =` field in `Cargo.toml` to match the name of your
-project.
+## Requirements
+
+- Linux with [NetworkManager](https://networkmanager.dev/) (`nmcli`)
+- [Bluetoothctl](https://man.archlinux.org/man/bluetoothctl.1)
+- Rust toolchain (stable)
+
+## Building
+
+```bash
+git clone https://github.com/lil-cosine/connection_manager.git
+cd connection_manager
+cargo build --release
+```
+
+## Running
+
+```bash
+cargo run --release
+```
+
+## Project Structure
+
+```
+src/
+├── main.rs       # App entry point, UI callback wiring
+├── wifi.rs       # Wi-Fi state via nmcli
+├── bluetooth.rs  # Bluetooth state via bluetoothctl
+ui/
+└── app-window.slint  # Slint UI definition
+```
+
+## License
+
+Licensed under the [MIT License](LICENSE).
