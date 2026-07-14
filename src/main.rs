@@ -101,22 +101,28 @@ fn main() -> Result<(), Box<dyn Error>> {
     let ui_weak = ui.as_weak();
     ui.on_toggle_bluetooth(move || {
         if let Some(ui) = ui_weak.upgrade() {
-            toggle_bluetooth(&ui);
+            if let Err(e) = toggle_bluetooth(&ui) {
+                show_error(&ui, e);
+            }
         }
     });
 
     let ui_weak = ui.as_weak();
     ui.on_connect_known_device(move |device| {
-        on_connect_device(&device.mac_address);
         if let Some(ui) = ui_weak.upgrade() {
+            if let Err(e) = on_connect_device(&device.mac_address) {
+                show_error(&ui, e);
+            }
             saved_devices(&ui);
         }
     });
 
     let ui_weak = ui.as_weak();
     ui.on_disconnect_known_device(move |device| {
-        on_disconnect_known_device(&device.mac_address);
         if let Some(ui) = ui_weak.upgrade() {
+            if let Err(e) = on_disconnect_known_device(&device.mac_address) {
+                show_error(&ui, e);
+            }
             saved_devices(&ui);
         }
     });
@@ -129,7 +135,12 @@ fn main() -> Result<(), Box<dyn Error>> {
 
         let ui_weak = ui_weak.clone();
         std::thread::spawn(move || {
-            scan_new_devices(5);
+            if let Some(ui) = ui_weak.upgrade() {
+                if let Err(e) = scan_new_devices(5) {
+                    show_error(&ui, e);
+                }
+            }
+            let ui_weak = ui_weak.clone();
             let devices = get_new_devices();
 
             let _ = slint::invoke_from_event_loop(move || {
@@ -142,20 +153,28 @@ fn main() -> Result<(), Box<dyn Error>> {
 
     let ui_weak = ui.as_weak();
     ui.on_connect_new_device(move |device| {
-        on_connect_new_device(&device.mac_address);
         if let Some(ui) = ui_weak.upgrade() {
+            if let Err(e) = on_connect_new_device(&device.mac_address) {
+                show_error(&ui, e);
+            }
             saved_devices(&ui);
-            scan_new_devices(2);
+            if let Err(e) = scan_new_devices(2) {
+                show_error(&ui, e);
+            }
             new_devices(&ui);
         }
     });
 
     let ui_weak = ui.as_weak();
     ui.on_forget_device(move |device| {
-        on_forget_device(&device.mac_address);
         if let Some(ui) = ui_weak.upgrade() {
+            if let Err(e) = on_forget_device(&device.mac_address) {
+                show_error(&ui, e);
+            }
             saved_devices(&ui);
-            scan_new_devices(2);
+            if let Err(e) = scan_new_devices(2) {
+                show_error(&ui, e);
+            }
             new_devices(&ui);
         }
     });
@@ -168,7 +187,12 @@ fn main() -> Result<(), Box<dyn Error>> {
         move || {
             let ui_weak = ui_weak.clone();
             std::thread::spawn(move || {
-                scan_new_devices(3);
+                if let Some(ui) = ui_weak.upgrade() {
+                    if let Err(e) = scan_new_devices(3) {
+                        show_error(&ui, e);
+                    }
+                }
+                let ui_weak = ui_weak.clone();
                 let devices = get_new_devices();
                 let _ = slint::invoke_from_event_loop(move || {
                     if let Some(ui) = ui_weak.upgrade() {

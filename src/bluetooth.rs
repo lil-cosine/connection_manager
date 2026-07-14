@@ -4,13 +4,25 @@ use slint::{ModelRc, VecModel};
 use std::process::Command;
 
 // public functions
-pub fn toggle_bluetooth(ui: &AppWindow) {
+pub fn toggle_bluetooth(ui: &AppWindow) -> Result<(), String> {
     if ui.get_bluetooth_on() {
-        disable_bluetooth();
-        ui.set_bluetooth_on(false);
+        let result = disable_bluetooth();
+        match result {
+            Ok(_) => {
+                ui.set_bluetooth_on(false);
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
     } else {
-        enable_bluetooth();
-        ui.set_bluetooth_on(true);
+        let result = enable_bluetooth();
+        match result {
+            Ok(_) => {
+                ui.set_bluetooth_on(true);
+                Ok(())
+            }
+            Err(e) => Err(e),
+        }
     }
 }
 
@@ -73,37 +85,42 @@ pub fn get_new_devices() -> Vec<BluetoothDevice> {
     new_devices
 }
 
-pub fn on_connect_device(mac_address: &str) {
+pub fn on_connect_device(mac_address: &str) -> Result<(), String> {
     Command::new("bluetoothctl")
         .args(["connect", mac_address])
         .output()
-        .expect("unable to connect to device");
+        .map(|_| ())
+        .map_err(|e| format!("unable to connect to device: {e}"))
 }
 
-pub fn on_connect_new_device(mac_address: &str) {
-    on_connect_device(mac_address);
-    on_trust_device(mac_address);
+pub fn on_connect_new_device(mac_address: &str) -> Result<(), String> {
+    on_connect_device(mac_address)?;
+    on_trust_device(mac_address)?;
+    Ok(())
 }
 
-pub fn on_disconnect_known_device(mac_address: &str) {
+pub fn on_disconnect_known_device(mac_address: &str) -> Result<(), String> {
     Command::new("bluetoothctl")
         .args(["disconnect", mac_address])
         .output()
-        .expect("failed to run bluetoothctl");
+        .map(|_| ())
+        .map_err(|e| format!("failed to run bluetoothctl: {e}"))
 }
 
-pub fn on_forget_device(mac_address: &str) {
+pub fn on_forget_device(mac_address: &str) -> Result<(), String> {
     Command::new("bluetoothctl")
         .args(["remove", mac_address])
         .output()
-        .expect("unable to forget device");
+        .map(|_| ())
+        .map_err(|e| format!("unable to forget device: {e}"))
 }
 
-pub fn scan_new_devices(timeout: i32) {
+pub fn scan_new_devices(timeout: i32) -> Result<(), String> {
     Command::new("bluetoothctl")
         .args(["--timeout", &timeout.to_string(), "scan", "on"])
         .output()
-        .expect("failed to run bluetoothctl");
+        .map(|_| ())
+        .map_err(|e| format!("failed to run bluetoothctl: {e}"))
 }
 
 pub fn display_new_devices(ui: &AppWindow, devices: VecModel<BluetoothDevice>) {
@@ -111,18 +128,20 @@ pub fn display_new_devices(ui: &AppWindow, devices: VecModel<BluetoothDevice>) {
 }
 
 // private functions
-fn enable_bluetooth() {
+fn enable_bluetooth() -> Result<(), String> {
     Command::new("bluetoothctl")
         .args(["power", "on"])
         .output()
-        .expect("unable to enable bluetooth");
+        .map(|_| ())
+        .map_err(|e| format!("failed to enable bluetooth: {e}"))
 }
 
-fn disable_bluetooth() {
+fn disable_bluetooth() -> Result<(), String> {
     Command::new("bluetoothctl")
         .args(["power", "off"])
         .output()
-        .expect("unable to disable bluetooth");
+        .map(|_| ())
+        .map_err(|e| format!("failed to disable bluetooth: {e}"))
 }
 
 fn get_saved_devices() -> Vec<BluetoothDevice> {
@@ -240,11 +259,12 @@ fn is_device_paired(mac_address: &str) -> bool {
         .unwrap_or(false)
 }
 
-fn on_trust_device(mac_address: &str) {
+fn on_trust_device(mac_address: &str) -> Result<(), String> {
     Command::new("bluetoothctl")
         .args(["trust", mac_address])
         .output()
-        .expect("unable to trust new device");
+        .map(|_| ())
+        .map_err(|e| format!("failed to trust device: {e}"))
 }
 
 fn display_saved_devices(ui: &AppWindow, devices: VecModel<BluetoothDevice>) {

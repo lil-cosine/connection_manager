@@ -18,11 +18,11 @@ pub fn set_wifi_on(ui: &AppWindow) -> Result<(), String> {
         Ok(o) => {
             let status = String::from_utf8_lossy(&o.stdout);
             ui.set_wifi_on(status.trim() == "enabled");
-            return Ok(());
+            Ok(())
         }
         Err(e) => {
             ui.set_wifi_on(false);
-            return Err(e.to_string());
+            Err(e.to_string())
         }
     }
 }
@@ -31,56 +31,38 @@ pub fn toggle_wifi(ui: &AppWindow) -> Result<(), String> {
     if ui.get_wifi_on() {
         let result = disable_wifi();
         match result {
-            Ok(_o) => {
+            Ok(_) => {
                 ui.set_wifi_on(false);
-                return Ok(());
+                Ok(())
             }
-            Err(e) => {
-                return Err(e);
-            }
+            Err(e) => Err(e),
         }
     } else {
         let result = enable_wifi();
         match result {
             Ok(_o) => {
                 ui.set_wifi_on(true);
-                return Ok(());
+                Ok(())
             }
-            Err(e) => {
-                return Err(e);
-            }
+            Err(e) => Err(e),
         }
     }
 }
 
 pub fn cur_network(ui: &AppWindow) -> Result<(), String> {
-    let result = get_cur_network();
-    let network = match result {
-        Ok(o) => o,
-        Err(e) => return Err(e),
-    };
+    let network = get_cur_network()?;
     display_cur_network(ui, network);
     Ok(())
 }
 
 pub fn avail_networks(ui: &AppWindow) -> Result<(), String> {
-    let result = get_avail_networks();
-
-    let networks = match result {
-        Ok(o) => VecModel::from(o),
-        Err(e) => return Err(e),
-    };
+    let networks = VecModel::from(get_avail_networks()?);
     display_avail_networks(ui, networks);
     Ok(())
 }
 
 pub fn saved_networks(ui: &AppWindow) -> Result<(), String> {
-    let result = get_saved_networks();
-
-    let networks = match result {
-        Ok(o) => VecModel::from(o),
-        Err(e) => return Err(e),
-    };
+    let networks = VecModel::from(get_saved_networks()?);
     display_saved_networks(ui, networks);
     Ok(())
 }
@@ -101,18 +83,11 @@ pub fn connect_new_network(ssid: &SharedString, password: &str) -> Result<(), St
 }
 
 pub fn try_connect_known(ssid: SharedString) -> Result<bool, String> {
-    let result = get_saved_networks();
-    let saved_ssids = match result {
-        Ok(o) => o,
-        Err(e) => return Err(e),
-    };
+    let saved_ssids = get_saved_networks()?;
     for saved_ssid in saved_ssids.iter() {
         if *saved_ssid == ssid {
-            let result = connect_saved_network(&ssid);
-            match result {
-                Ok(_o) => return Ok(true),
-                Err(e) => return Err(e),
-            }
+            connect_saved_network(&ssid)?;
+            return Ok(true);
         }
     }
     Ok(false)
